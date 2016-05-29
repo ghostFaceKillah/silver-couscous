@@ -93,7 +93,7 @@ class NeuralNet(object):
         W_conv3 = weight_variable([3, 3, 64, 64])
         b_conv3 = bias_variable([64])
 
-        out_size_after_conv = 3136
+        out_size_after_conv = 7744
         W_fc_1 = weight_variable([out_size_after_conv, 512])
         b_fc_1 = bias_variable([512])
 
@@ -107,6 +107,11 @@ class NeuralNet(object):
         h_conv1 = tf.nn.relu(conv2D(phi_in, W_conv1, stride_1) + b_conv1)
         h_conv2 = tf.nn.relu(conv2D(h_conv1, W_conv2, stride_2) + b_conv2)
         h_conv3 = tf.nn.relu(conv2D(h_conv2, W_conv3, stride_3) + b_conv3)
+
+        h_conv3_shape = h_conv3.get_shape().as_list()
+        print "dimension: ", h_conv3_shape
+		# print "dimension:",h_conv3_shape[1]*h_conv3_shape[2]*h_conv3_shape[3]
+
         h_conv3_flat = tf.reshape(h_conv3, [-1, out_size_after_conv])
         h_fc_1 = tf.nn.relu(tf.matmul(h_conv3_flat, W_fc_1) + b_fc_1)
         Q = tf.nn.softmax(tf.matmul(h_fc_1, W_fc_2) + b_fc_2)
