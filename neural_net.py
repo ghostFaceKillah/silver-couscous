@@ -1,111 +1,191 @@
 import tensorflow as tf
+
 import constants as cnst
 
 
 def weight_variable(shape):
+    # TODO(mike): Write docstring
     initial = tf.truncated_normal(shape, stddev=0.1)
     return tf.Variable(initial)
 
 
 def bias_variable(shape):
+    # TODO(mike): Write docstring
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
 
 
-def conv2D(x, W, ksize, strides):
+def conv2D(x, W, stride):
+    # TODO(mike): Write docstring
     return tf.nn.conv2d(
-        x, W, ksize=ksize, strides=strides, padding='SAME'
+        x, W, strides=[1, stride, stride, 1], padding='SAME'
     )
 
 
 class NeuralNet(object):
-    def __init__(self, sess):
-        self.assignable_params = []
-        self.build_tf_network()
+    # TODO(mike): Write docstring
+    def __init__(self):
+        # TODO(mike): Write docstring
+        self.session = tf.Session()
+        self.initialize_learning_network()
+        self.initialize_target_network()
 
-    def build_tf_network(self):
-        """ Build the actual TF network """
-        self.x = tf.placeholder("float", shape=[
-            None, cnst.RESIZED_IMAGE_H,
-            cnst.RESIZED_IMAGE_W, cnst.NUM_FRAMES_PASSED
-            # batch size * 84 * 84 * 3
-        ])
+        self.define_copying_operation()
+        self.define_choose_action()
+        self.define_loss_operations()
 
-        self.y_target = tf.placeholder("float", cnst.ACTION_SPACE_SIZE)
+        self.session.run(tf.initialize_all_variables())
 
-        self.W_conv1 = weight_variable([
-            8, 8, cnst.NUM_FRAMES_PASSED, 32
-        ])
-        self.b_conv1 = bias_variable([32])
-        stride_1 = [2, 2]
+        self.reset_target_net()
 
-        h_conv1 = tf.nn.relu(conv2D(self.x, self.W_conv1, stride_1) + self.b_conv1)
-
-        self.W_conv2 = weight_variable([4, 4, 32, 64])
-        self.b_conv2 = bias_variable([64])
-        stride_2 = [2, 2]
-
-        h_conv2 = tf.nn.relu(conv2D(h_conv1, self.W_conv2, stride_2) + self.b_conv2)
-
-        self.W_conv3 = weight_variable([3, 3, 64, 64])
-        self.b_conv3 = bias_variable([64])
-        stride_3 = [1, 1]
-
-        h_conv3 = tf.nn.relu(conv2D(h_conv2, self.W_conv3, stride_3) + self.b_conv3)
-
-        out_size_after_conv = cnst.RESIZED_IMAGE_H / 4 * cnst.RESIZED_IMAGE_W / 4 * 64
-        h_conv3_flat = tf.reshape(h_conv3, [-1, out_size_after_conv])
-
-        self.W_fc_1 = weight_variable([out_size_after_conv, 512])
-        self.b_fc_1 = bias_variable([512])
-
-        h_fc_1 = tf.nn.relu(tf.matmul(h_conv3_flat, self.W_fc_1) + self.b_fc_1)
-
-        self.W_fc_2 = weight_variable([512, cnst.ACTION_SPACE_SIZE])
-        self.b_fc_2 = bias_variable([cnst.ACTION_SPACE_SIZE])
-
-        self.y_our = tf.nn.softmax(tf.matmul(h_fc_1, self.W_fc_2) + self.b_fc_2)
-        self.choice = tf.argmax(self.y_our)
-        # TODO(mike): Some kind of argmax is definitely needed here
-
-        self.loss = tf.reduce_sum(tf.square(self.y_our - self.y_target))
-
-        # TODO(mike): Check these rates, dude
-        self.train_step = tf.train.RMSPropOptimizer(0.1, 0.1).minimize(loss)
-
-        self.net_params = [
+    def initialize_learning_network(self):
+        # TODO(mike): Write docstring
+        (
+            self.phi_in, self.Q,
             self.W_conv1, self.b_conv1,
             self.W_conv2, self.b_conv2,
             self.W_conv3, self.b_conv3,
             self.W_fc_1, self.b_fc_1,
             self.W_fc_2, self.b_fc_2
+        ) = self.define_Q_network()
+
+    def initialize_target_network(self):
+        # TODO(mike): Write docstring
+        (
+            self.phi_inT, self.QT,
+            self.W_conv1T, self.b_conv1T,
+            self.W_conv2T, self.b_conv2T,
+            self.W_conv3T, self.b_conv3T,
+            self.W_fc_1T, self.b_fc_1T,
+            self.W_fc_2T, self.b_fc_2T
+        ) = self.define_Q_network()
+
+    def define_copying_operation(self):
+        # TODO(mike): Write docstring
+        self.copy_target_net_operation = [
+            self.W_conv1T.assign(self.W_conv1),
+            self.b_conv1T.assign(self.b_conv1),
+            self.W_conv2T.assign(self.W_conv2),
+            self.b_conv2T.assign(self.b_conv2),
+            self.W_conv3T.assign(self.W_conv3),
+            self.b_conv3T.assign(self.b_conv3),
+            self.W_fc1T.assign(self.W_fc1),
+            self.b_fc1T.assign(self.b_fc1),
+            self.W_fc2T.assign(self.W_fc2),
+            self.b_fc2T.assign(self.b_fc2)
         ]
 
-    def train(self, session, data):
+    @staticmethod
+    def define_Q_network():
+        """ Build the actual TF network """
+        phi_in = tf.placeholder("float", shape=[
+            None, cnst.RESIZED_IMAGE_H,
+            cnst.RESIZED_IMAGE_W, cnst.NUM_FRAMES_PASSED
+            # batch size * 84 * 84 * 3
+        ])
+
+        W_conv1 = weight_variable([8, 8, cnst.NUM_FRAMES_PASSED, 32])
+        b_conv1 = bias_variable([32])
+
+        W_conv2 = weight_variable([4, 4, 32, 64])
+        b_conv2 = bias_variable([64])
+
+        W_conv3 = weight_variable([3, 3, 64, 64])
+        b_conv3 = bias_variable([64])
+
+        out_size_after_conv = 3136
+        W_fc_1 = weight_variable([out_size_after_conv, 512])
+        b_fc_1 = bias_variable([512])
+
+        W_fc_2 = weight_variable([512, cnst.ACTION_SPACE_SIZE])
+        b_fc_2 = bias_variable([cnst.ACTION_SPACE_SIZE])
+
+        stride_1 = 4
+        stride_2 = 2
+        stride_3 = 1
+
+        h_conv1 = tf.nn.relu(conv2D(phi_in, W_conv1, stride_1) + b_conv1)
+        h_conv2 = tf.nn.relu(conv2D(h_conv1, W_conv2, stride_2) + b_conv2)
+        h_conv3 = tf.nn.relu(conv2D(h_conv2, W_conv3, stride_3) + b_conv3)
+        h_conv3_flat = tf.reshape(h_conv3, [-1, out_size_after_conv])
+        h_fc_1 = tf.nn.relu(tf.matmul(h_conv3_flat, W_fc_1) + b_fc_1)
+        Q = tf.nn.softmax(tf.matmul(h_fc_1, W_fc_2) + b_fc_2)
+
+        return (
+            phi_in, Q,
+            W_conv1, b_conv1,
+            W_conv2, b_conv2,
+            W_conv3, b_conv3,
+            W_fc_1, b_fc_1,
+            W_fc_2, b_fc_2
+        )
+
+    def define_choose_action(self):
+        # TODO(mike): Write docstring
+        self._choose_action = tf.arg_max(self.Q)
+
+    def define_loss_operations(self):
+        # TODO(mike): Write docstring
+        self.y_target = tf.placeholder("float", shape=[None])
+        self.action = tf.placeholder("float", shape=[
+            None, cnst.ACTION_SPACE_SIZE
+        ])
+
+        executed_action = tf.reduce_sum(
+            tf.mul(self.Q, self.action),
+            reduction_indices=1
+        )
+        loss = tf.reduce_mean(tf.square(self.y_target - executed_action))
+
+        self.train_step = tf.train.RMSPropOptimizer(0.1, 0.1).minimize(loss)
+        raise NotImplementedError, "Check RMSProp params"
+
+    def train(self, data):
+        # TODO(mike): Write docstring
+        (
+            train_phis,
+            train_actions,
+            train_rewards,
+            train_next_phis,
+            train_terminals
+        ) = data
+        y_target = []
+        qval_train = self.q_target_for_state(train_next_phis)
+
+        for i in xrange(cnst.TRAINING_BATCH_SIZE):
+            if train_terminals[i]:
+                y_target.append(train_rewards[i])
+            else:
+                y_target.append(
+                    train_rewards[i] + cnst.DISCOUNT_FACTOR * qval_train[i]
+                )
+
         self.train_step.run(
             feed_dict={
-                self.x: data[0],
-                self.y_target: data[1]
+                self.phi_in: train_phis,
+                self.y_target: y_target,
+                self.action: train_actions
             },
-            session=session
+            session=self.session
         )
 
-    def choose_action(self, session, data):
-        action = self.choice.run(
+    def q_target_for_state(self, phi):
+        # TODO(mike): Write docstring
+        return self.QT.run(
+            feed_dict={
+                self.phi_inT: phi
+            },
+            session=self.session
+        )
+
+    def choose_action(self, data):
+        # TODO(mike): Write docstring
+        return self._choose_action.run(
             feed_dict={
                 self.x: data
-            },
-            session=session
+            }
         )
-        return action
 
-    def copy_params(self, session, other):
-        """
-        :param session: Tensorflow session to
-        :param other:
-        :return:
-        """
-        for my_param, other_param in zip(self.net_params,
-                                         other.net_params):
-
-            session.run(my_param.assign(other_param))
+    def reset_target_net(self):
+        # TODO(mike): Write docstring
+        self.session.run(self.copy_target_net_operation)

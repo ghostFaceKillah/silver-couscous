@@ -1,20 +1,17 @@
+import cv2
 import numpy as np
+import skimage.color as image_util
+
 import constants as cnst
-
-
-"""
-Steal it from the old implementation completely??
-Dunno lol.
-"""
 
 
 class PlaybackMemory(object):
     def __init__(self):
-        self.pre_images = np.zeros(
-            shape=(
+        self.phis = np.zeros(shape=(
                 cnst.PLAYBACK_MEMORY_SIZE,
                 cnst.RESIZED_IMAGE_H,
-                cnst.RESIZED_IMAGE_W
+                cnst.RESIZED_IMAGE_W,
+                cnst.NUM_FRAMES_PASSED
             )
         )
         self.actions = np.zeros(
@@ -28,23 +25,59 @@ class PlaybackMemory(object):
                 cnst.PLAYBACK_MEMORY_SIZE
             )
         )
-        self.post_images = np.zeros(
+        self.next_phis = np.zeros(
             shape=(
                 cnst.PLAYBACK_MEMORY_SIZE,
                 cnst.RESIZED_IMAGE_H,
-                cnst.RESIZED_IMAGE_W
+                cnst.RESIZED_IMAGE_W,
+                cnst.NUM_FRAMES_PASSED
             )
         )
+        self.terminals = np.zeros(
+            shape=(
+                cnst.PLAYBACK_MEMORY_SIZE
+            )
+        )
+        self.index = 0
+        self.size = 0
 
-    def store_transition(self, old_image, action, reward,
-                         new_image, episode_ended):
+    def store_transition(self, phi, action, reward,
+                         next_phi, episode_ended):
         """
         Store the transition tuple from
         """
-        pass
+        self.phis[self.index, ...] = phi
+        self.actions[self.index, ...] = action
+        self.rewards[self.index, ...] = reward
+        self.next_phis[self.index, ...] = next_phi
+        self.terminals[self.index, ...] = episode_ended
+        self.index = (self.index + 1) % cnst.PLAYBACK_MEMORY_SIZE
+        if self.size < cnst.PLAYBACK_MEMORY_SIZE:
+            self.size += 1
+
+    def draw_sample(self):
+        choice = np.random.choice(
+            self.size,
+            cnst.TRAINING_BATCH_SIZE,
+            replace=False
+        )
+
+        train_phis = self.phis[choice]
+        train_actions = self.actions[choice]
+        train_rewards = self.rewards[choice]
+        train_next_phis = self.next_phis[choice]
+        train_terminals = self.terminals[choice]
+
+        return (
+            train_phis,
+            train_actions,
+            train_rewards,
+            train_next_phis,
+            train_terminals
+        )
 
 
-class ImageProcessor(object):
+class PhiProcessor(object):
     """
     This class does 4 things:
         1) Applies max over the current and last
@@ -57,27 +90,48 @@ class ImageProcessor(object):
     this effect) so for now I will just leave it as it is.
     """
     def __init__(self):
-        self.buffer = np.zeros(
-            (self.BUFFER_SIZE, cnst.ORIGINAL_IMAGE_H, cnst.ORIGINAL_IMAGE_W, 3)
+        self.max_buffer = np.zeros(
+            shape=(
+                self.MAX_BUFFER_SIZE,
+                cnst.ORIGINAL_IMAGE_H,
+                cnst.ORIGINAL_IMAGE_W,
+                3
+            )
         )
-        self.buffer_counter = 0
+        self.max_buffer_counter = 0
 
-    BUFFER_SIZE = 2
+        self.phi_buffer = np.zeros(
+            shape=(
+                cnst.NUM_FRAMES_PASSED,
+                cnst.RESIZED_IMAGE_H,
+                cnst.RESIZED_IMAGE_W
+            )
+        )
+        self.phi_buffer_counter = 0
 
-    def reset(self):
-        self.buffer_counter = 0
+    MAX_BUFFER_SIZE = 2
 
-    def save_image_to_buffer(self, image):
-        self.buffer[self.buffer_counter, ...] = image
-        self.buffer_counter = (self.buffer_counter + 1) % self.BUFFER_SIZE
+    def initialize_episode(self, rgb_image):
+        self._save_image_to_max_buffer(rgb_image)
 
-    def load_image_from_buffer(self):
+        image = self.scale_n_grey(rgb_image)
+        for i in xrange(cnst.NUM_FRAMES_PASSED):
+            self._save_image_to_phi_buffer(image)
+
+    def _save_image_to_max_buffer(self, image):
+        self.max_buffer[self.max_buffer_counter, ...] = image
+        self.max_buffer_counter = (self.max_buffer_counter + 1) % self.BUFFER_SIZE
+
+    def _get_max_over_two_last_two_images(self):
         """ Max over two last frames """
-        return self.buffer.max(axis=0)
+        return self.max_buffer.max(axis=0)
 
-    def process_image(self, input_image):
-        self.save_image_to_buffer(input_image)
-        image = self.load_image_from_buffer()
+    def _save_image_to_phi_buffer(self, image):
+        self.phi_buffer[self.phi_buffer_counter, ...] = image
+        self.phi_buffer_counter = (self.phi_buffer_counter + 1) % cnst.NUM_FRAMES_PASSED
+
+    @staticmethod
+    def scale_n_grey(image):
         grayscale_image = image_util.rgb2gray(image)
         rescaled_image = cv2.resize(
             grayscale_image,
@@ -87,3 +141,24 @@ class ImageProcessor(object):
             # see docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html
         )
         return rescaled_image
+
+    def feed_image(self, input_image):
+        """
+        Puts image into processing pipeline
+        """
+        self._save_image_to_max_buffer(input_image)
+
+        max_image = self._get_max_over_two_last_two_images()
+        image = self.scale_n_grey(max_image)
+
+        self._save_image_to_phi_buffer(image)
+
+    def get_phi(self):
+        """
+        Does point 4) stacking M recent frames to form input to the learner
+        """
+        index = self.phi_buffer_counter
+        selection_length = cnst.NUM_FRAMES_PASSED
+        selection = xrange(index - selection_length + 1, index + 1)
+
+        return self.phi_buffer.take(selection, axis=1, mode='wrap')

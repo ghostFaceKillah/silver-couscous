@@ -1,11 +1,8 @@
-import cv2
 import numpy as np
-import tensorflow as tf
-import skimage.color as image_util
 
 import constants as cnst
 from neural_net import NeuralNet
-from data import ImageProcessor, PlaybackMemory
+from data import PhiProcessor, PlaybackMemory
 
 
 class NeuralAgent(object):
@@ -13,29 +10,25 @@ class NeuralAgent(object):
         """ Create the Deep Q net agent. Initialize the nets. """
 
         # intialize the neural nets
-        self.tf_session = tf.Session()
         self.memory = PlaybackMemory()
-        self.Q_net = NeuralNet(self.tf_session)
-        self.Q_target_net = NeuralNet(self.tf_session)
-        # TODO(mike): Do I have to run it using some session
-        tf.initialize_all_variables()
-        self.Q_target_net.copy_params(self.tf_session, self.Q_net)
+        self.neural_network = NeuralNet()
 
-        self.image_processor = ImageProcessor()
+        self.phi_processor = PhiProcessor()
 
         self.epsilon = cnst.STARTING_EPSILON
 
         self.last_action = None
-        self.last_processed_image = None
-        self.next_processed_image = None
+        self.phi_current = None
+        self.phi_new = None
 
         self.steps_in_episode = None
 
-
     def initialize_episode(self, image):
-        self.last_processed_image = self.image_processor.process_image(image)
+        # maybe change self.image_processor.process_image to
+        # sth like initialize_episode_with_image
+        self.phi_processor.initialize_episode(image)
+        self.phi_next = self.phi_processor.get_phi()
         self.steps_in_episode = 0
-        raise NotImplementedError
 
     def apply_epsilon_decay(self):
         if self.epsilon > cnst.MIN_EPSILON:
@@ -43,6 +36,12 @@ class NeuralAgent(object):
                 cnst.MIN_EPSILON,
                 self.epsilon - cnst.EPSILON_DECAY
             )
+
+    @staticmethod
+    def vectorize_action(action):
+        resu = np.zeros(shape=[cnst.ACTION_SPACE_SIZE])
+        resu[action] = 1.0
+        return resu
 
     """
     The algo has to do the following
@@ -55,7 +54,6 @@ class NeuralAgent(object):
             * save the transition data in the memory
             * run training
             * every C steps reset target network
-
     """
 
     def select_action(self):
@@ -71,7 +69,7 @@ class NeuralAgent(object):
             return self.last_action
         else:
             self.last_action = self.neural_network.choose_action(
-                self.tf_session, self.last_processed_image
+                self.phi_current
             )
         return self.last_action
 
@@ -80,12 +78,14 @@ class NeuralAgent(object):
         Observe the reward, store the transition in memory,
         train the Q function.
         """
-        self.next_processed_image = phi(new_image)
+        self.phi_processor.feed_image(new_image)
+        self.phi_next = self.phi_processor.get_phi()
+
         self.memory.store_transition(
-            self.last_processed_image,
-            self.last_action,
+            self.phi_current,
+            self.vectorize_action(self.action_last_action),
             reward,
-            self.next_processed_image,
+            self.phi_new,
             episode_ended
         )
 
@@ -94,15 +94,18 @@ class NeuralAgent(object):
 
         self.steps_in_episode += 1
 
+        if episode_ended:
+            self.initialize_episode(new_image)
+
+        self.phi_current = self.phi_new
+
         if self.steps_in_episode % cnst.RESET_TARGET_NET_FREQUENCY:
-            self.reset_target_net()
+            self.neural_net.reset_target_net()
 
     def run_training(self):
-        pass
-
-    def reset_target_net(self):
         """
-        Every 10000 episodes, we want to update the 'target'
-        net with most recent learned params.
+        Run training on minibatch of tuples
+        (phi, action, reward, next_phi, terminal)
         """
-        self.Q_net.copy_params(self.tf_session, self.Q_target_net)
+        batch = self.memory.draw_sample()
+        self.neural_network.train(batch)

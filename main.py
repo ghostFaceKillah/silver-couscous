@@ -11,8 +11,10 @@ def run_experiment():
         for t in xrange(100):
             env.render()
             print observation
-            action = agent.act()
+            action = agent.select_action()
             observation, reward, done, info = env.step(action)
+            agent.observe_reward_and_image(reward, observation, done)
+
             if done:
                 print "Episode finished after {} timesteps".format(t+1)
                 break
