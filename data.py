@@ -120,7 +120,7 @@ class PhiProcessor(object):
 
     def _save_image_to_max_buffer(self, image):
         self.max_buffer[self.max_buffer_counter, ...] = image
-        self.max_buffer_counter = (self.max_buffer_counter + 1) % self.BUFFER_SIZE
+        self.max_buffer_counter = (self.max_buffer_counter + 1) % self.MAX_BUFFER_SIZE
 
     def _get_max_over_two_last_two_images(self):
         """ Max over two last frames """

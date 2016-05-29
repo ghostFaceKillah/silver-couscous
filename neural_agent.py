@@ -21,7 +21,8 @@ class NeuralAgent(object):
         self.phi_current = None
         self.phi_new = None
 
-        self.steps_in_episode = None
+        self.steps_in_episode = 0
+        self.global_steps = 0
 
     def initialize_episode(self, image):
         # maybe change self.image_processor.process_image to
@@ -65,7 +66,7 @@ class NeuralAgent(object):
         """
         # epsilon - greedy schedule
         if np.random.random() < self.epsilon:
-            self.last_action = self.action_space.sample()
+            self.last_action = np.random.randint(cnst.ACTION_SPACE_SIZE)
             return self.last_action
         else:
             self.last_action = self.neural_network.choose_action(
@@ -83,16 +84,18 @@ class NeuralAgent(object):
 
         self.memory.store_transition(
             self.phi_current,
-            self.vectorize_action(self.action_last_action),
+            self.vectorize_action(self.last_action),
             reward,
             self.phi_new,
             episode_ended
         )
 
-        self.run_training()
+        if self.global_steps > 100:
+            self.run_training()
         self.apply_epsilon_decay()
 
         self.steps_in_episode += 1
+        self.global_steps += 1
 
         if episode_ended:
             self.initialize_episode(new_image)
@@ -100,7 +103,7 @@ class NeuralAgent(object):
         self.phi_current = self.phi_new
 
         if self.steps_in_episode % cnst.RESET_TARGET_NET_FREQUENCY:
-            self.neural_net.reset_target_net()
+            self.neural_network.reset_target_net()
 
     def run_training(self):
         """

@@ -45,8 +45,8 @@ class NeuralNet(object):
             self.W_conv1, self.b_conv1,
             self.W_conv2, self.b_conv2,
             self.W_conv3, self.b_conv3,
-            self.W_fc_1, self.b_fc_1,
-            self.W_fc_2, self.b_fc_2
+            self.W_fc1, self.b_fc1,
+            self.W_fc2, self.b_fc2
         ) = self.define_Q_network()
 
     def initialize_target_network(self):
@@ -56,8 +56,8 @@ class NeuralNet(object):
             self.W_conv1T, self.b_conv1T,
             self.W_conv2T, self.b_conv2T,
             self.W_conv3T, self.b_conv3T,
-            self.W_fc_1T, self.b_fc_1T,
-            self.W_fc_2T, self.b_fc_2T
+            self.W_fc1T, self.b_fc1T,
+            self.W_fc2T, self.b_fc2T
         ) = self.define_Q_network()
 
     def define_copying_operation(self):
@@ -122,7 +122,7 @@ class NeuralNet(object):
 
     def define_choose_action(self):
         # TODO(mike): Write docstring
-        self._choose_action = tf.arg_max(self.Q)
+        self._choose_action = tf.arg_max(self.Q, dimension=0)
 
     def define_loss_operations(self):
         # TODO(mike): Write docstring
@@ -138,7 +138,7 @@ class NeuralNet(object):
         loss = tf.reduce_mean(tf.square(self.y_target - executed_action))
 
         self.train_step = tf.train.RMSPropOptimizer(0.1, 0.1).minimize(loss)
-        raise NotImplementedError, "Check RMSProp params"
+        # TODO(mike): set up these params well
 
     def train(self, data):
         # TODO(mike): Write docstring
@@ -171,7 +171,7 @@ class NeuralNet(object):
 
     def q_target_for_state(self, phi):
         # TODO(mike): Write docstring
-        return self.QT.run(
+        return self.QT.eval(
             feed_dict={
                 self.phi_inT: phi
             },
@@ -180,7 +180,7 @@ class NeuralNet(object):
 
     def choose_action(self, data):
         # TODO(mike): Write docstring
-        return self._choose_action.run(
+        return self._choose_action.eval(
             feed_dict={
                 self.x: data
             }
