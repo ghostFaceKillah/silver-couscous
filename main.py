@@ -8,10 +8,13 @@ def run_experiment():
 
     for i_episode in xrange(20):
         observation = env.reset()
-        for t in xrange(100):
+        agent.initialize_episode(observation)
+
+        for t in xrange(100000):
             env.render()
             action = agent.select_action()
             observation, reward, done, info = env.step(action)
+            print reward
             agent.observe_reward_and_image(reward, observation, done)
 
             if done:
@@ -20,4 +23,3 @@ def run_experiment():
 
 
 run_experiment()
-

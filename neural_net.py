@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 
 import constants as cnst
@@ -127,10 +128,16 @@ class NeuralNet(object):
 
     def define_loss_operations(self):
         # TODO(mike): Write docstring
-        self.y_target = tf.placeholder("float", shape=[None])
-        self.action = tf.placeholder("float", shape=[
-            None, cnst.ACTION_SPACE_SIZE
-        ])
+        self.y_target = tf.placeholder(
+            "float",
+            shape=[None],
+            name="y_target"
+        )
+        self.action = tf.placeholder(
+            "float",
+            shape=[None, cnst.ACTION_SPACE_SIZE],
+            name="action"
+        )
 
         executed_action = tf.reduce_sum(
             tf.mul(self.Q, self.action),
@@ -158,14 +165,14 @@ class NeuralNet(object):
                 y_target.append(train_rewards[i])
             else:
                 y_target.append(
-                    train_rewards[i] + cnst.DISCOUNT_FACTOR * qval_train[i]
+                    train_rewards[i] + cnst.DISCOUNT_FACTOR * np.max(qval_train[i])
                 )
 
         self.train_step.run(
             feed_dict={
-                self.phi_in: train_phis,
-                self.y_target: y_target,
-                self.action: train_actions
+                self.phi_in: train_phis,   # shape is (32, 84, 84, 3)
+                self.y_target: y_target,   # this is list of 32 values
+                self.action: train_actions # shape is (32, 6)
             },
             session=self.session
         )

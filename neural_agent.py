@@ -19,7 +19,7 @@ class NeuralAgent(object):
 
         self.last_action = None
         self.phi_current = None
-        self.phi_new = None
+        self.phi_next = None
 
         self.steps_in_episode = 0
         self.global_steps = 0
@@ -28,7 +28,7 @@ class NeuralAgent(object):
         # maybe change self.image_processor.process_image to
         # sth like initialize_episode_with_image
         self.phi_processor.initialize_episode(image)
-        self.phi_next = self.phi_processor.get_phi()
+        self.phi_current = self.phi_processor.get_phi()
         self.steps_in_episode = 0
 
     def apply_epsilon_decay(self):
@@ -86,7 +86,7 @@ class NeuralAgent(object):
             self.phi_current,
             self.vectorize_action(self.last_action),
             reward,
-            self.phi_new,
+            self.phi_next,
             episode_ended
         )
 
@@ -100,7 +100,7 @@ class NeuralAgent(object):
         if episode_ended:
             self.initialize_episode(new_image)
 
-        self.phi_current = self.phi_new
+        self.phi_current = self.phi_next
 
         if self.steps_in_episode % cnst.RESET_TARGET_NET_FREQUENCY:
             self.neural_network.reset_target_net()

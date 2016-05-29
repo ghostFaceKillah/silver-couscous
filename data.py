@@ -102,9 +102,9 @@ class PhiProcessor(object):
 
         self.phi_buffer = np.zeros(
             shape=(
-                cnst.NUM_FRAMES_PASSED,
                 cnst.RESIZED_IMAGE_H,
-                cnst.RESIZED_IMAGE_W
+                cnst.RESIZED_IMAGE_W,
+                cnst.NUM_FRAMES_PASSED,
             )
         )
         self.phi_buffer_counter = 0
@@ -127,7 +127,7 @@ class PhiProcessor(object):
         return self.max_buffer.max(axis=0)
 
     def _save_image_to_phi_buffer(self, image):
-        self.phi_buffer[self.phi_buffer_counter, ...] = image
+        self.phi_buffer[..., self.phi_buffer_counter]  = image
         self.phi_buffer_counter = (self.phi_buffer_counter + 1) % cnst.NUM_FRAMES_PASSED
 
     @staticmethod
@@ -161,4 +161,4 @@ class PhiProcessor(object):
         selection_length = cnst.NUM_FRAMES_PASSED
         selection = xrange(index - selection_length + 1, index + 1)
 
-        return self.phi_buffer.take(selection, axis=1, mode='wrap')
+        return self.phi_buffer.take(selection, axis=2, mode='wrap')
