@@ -1,6 +1,14 @@
 import gym
 import neural_agent
 
+"""
+TODO:
+    * Set up good metaparams
+    * Set up tensorboard
+    * Make saving
+    * Run tests
+"""
+
 
 def run_experiment():
     env = gym.make('Breakout-v0')
