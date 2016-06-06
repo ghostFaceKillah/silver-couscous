@@ -97,6 +97,9 @@ class NeuralAgent(object):
         self.steps_in_episode += 1
         self.global_steps += 1
 
+        if self.global_steps % cnst.SAVE_FREQ == 0:
+            self.neural_network.save_net(self.global_steps)
+
         if episode_ended:
             self.initialize_episode(new_image)
 

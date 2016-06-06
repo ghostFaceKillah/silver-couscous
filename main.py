@@ -9,25 +9,40 @@ TODO:
     * Run tests
 """
 
+RENDER_ENV = True
 
 def run_experiment():
     env = gym.make('Breakout-v0')
     agent = neural_agent.NeuralAgent()
 
-    for i_episode in xrange(20):
+    i_episode = 0
+    running_reward = 0
+
+    while True:
+        print "Episode {}".format(i_episode)
+
         observation = env.reset()
         agent.initialize_episode(observation)
 
+        total_reward = 0
+
         for t in xrange(100000):
-            env.render()
+            if RENDER_ENV:
+                env.render()
             action = agent.select_action()
             observation, reward, done, info = env.step(action)
-            print reward
+            total_reward += reward
             agent.observe_reward_and_image(reward, observation, done)
 
             if done:
                 print "Episode finished after {} timesteps".format(t+1)
                 break
+
+        mean_reward = float(total_rewards) / t
+        running_reward = 0.01 * mean_reward + 0.99 * running_reward
+
+        print "Ended. Reward = {}, Lasted t = {}, Mean Reward this ep = {}, Long term mean reward = {}"
+        i_episode += 1
 
 
 run_experiment()

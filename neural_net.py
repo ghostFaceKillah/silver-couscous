@@ -39,6 +39,11 @@ class NeuralNet(object):
 
         self.reset_target_net()
 
+        self.saver = tf.train.Saver()
+
+    def save_net(self, timestep):
+        self.saver.save(self.session, 'dqn/saved-nets', global_step=timestep)
+
     def initialize_learning_network(self):
         # TODO(mike): Write docstring
         (
@@ -145,8 +150,8 @@ class NeuralNet(object):
         )
         loss = tf.reduce_mean(tf.square(self.y_target - executed_action))
 
-        self.train_step = tf.train.RMSPropOptimizer(0.1, 0.1).minimize(loss)
-        # TODO(mike): set up these params well
+        self.train_step = tf.train.RMSPropOptimizer(0.00025, 0.99, 0.0, 1e-6).minimize(loss)
+        # TODO(mike): move params to constants
 
     def train(self, data):
         # TODO(mike): Write docstring
