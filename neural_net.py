@@ -195,7 +195,7 @@ class NeuralNet(object):
         # TODO(mike): Write docstring
         return self._choose_action.eval(
             feed_dict={
-                self.x: data
+                self.phi_in: data
             }
         )
 
