@@ -9,7 +9,8 @@ TODO:
     * Run tests
 """
 
-RENDER_ENV = True
+RENDER_ENV = False
+
 
 def run_experiment():
     env = gym.make('Breakout-v0')
@@ -38,10 +39,14 @@ def run_experiment():
                 print "Episode finished after {} timesteps".format(t+1)
                 break
 
-        mean_reward = float(total_rewards) / t
+        mean_reward = float(total_reward) / t
         running_reward = 0.01 * mean_reward + 0.99 * running_reward
 
-        print "Ended. Reward = {}, Lasted t = {}, Mean Reward this ep = {}, Long term mean reward = {}"
+        print "Reward = {}, Mean Reward this ep = {}, Long term mean reward = {}".format(
+            total_reward,
+            round(mean_reward, 4),
+            round(running_reward, 4)
+        )
         i_episode += 1
 
 
