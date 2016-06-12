@@ -129,7 +129,7 @@ class NeuralNet(object):
 
     def define_choose_action(self):
         # TODO(mike): Write docstring
-        self._choose_action = tf.arg_max(self.Q, dimension=0)
+        self._choose_action = self.Q
 
     def define_loss_operations(self):
         # TODO(mike): Write docstring
@@ -191,13 +191,15 @@ class NeuralNet(object):
             session=self.session
         )
 
-    def choose_action(self, data):
+    def choose_action(self, one_point_of_data):
         # TODO(mike): Write docstring
-        return self._choose_action.eval(
+        resu = self._choose_action.eval(
             feed_dict={
-                self.phi_in: data
-            }
+                self.phi_in: [one_point_of_data]
+            },
+            session=self.session
         )
+        return np.argmax(resu[0])
 
     def reset_target_net(self):
         # TODO(mike): Write docstring

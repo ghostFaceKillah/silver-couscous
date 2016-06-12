@@ -9,7 +9,7 @@ TODO:
     * Run tests
 """
 
-RENDER_ENV = False
+RENDER_ENV = True
 
 
 def run_experiment():
